@@ -2,4 +2,4 @@
 
 1. To generate features and make predictions, please unzip the embedding files and use functions provided in DeepCPI.py.
 
-2. Trained models to reproduce GPCR predictions in our paper are zipped in trained_models.rar.
+2. Trained models that can reproduce GPCR predictions in our paper are zipped in trained_models.rar.
