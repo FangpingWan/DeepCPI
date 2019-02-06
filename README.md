@@ -5,4 +5,4 @@
 2. Trained models that can reproduce GPCR predictions in our paper are zipped in trained_models.rar.
 
 # Requirement
-Python2.7 Keras Gensim Tensorflow
+Python2.7, Keras, Gensim, Tensorflow
