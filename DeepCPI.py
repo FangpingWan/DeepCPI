@@ -9,7 +9,7 @@ from keras.layers import merge
 from keras.models import model_from_json
 from keras.regularizers import l1,l2
 from keras.layers.normalization import BatchNormalization
-from keras.utils.visualize_util import plot
+#from keras.utils.visualize_util import plot
 from keras.callbacks import ModelCheckpoint, EarlyStopping, LearningRateScheduler
 from keras.optimizers import Adagrad, Adam
 from keras.layers import Input
@@ -51,6 +51,53 @@ def compute_compound_feature(a_compound):
 	dictionary = corpora.Dictionary.load('dict_for_1_nofeatureinvariant2.dict')
 	tfidf = models.tfidfmodel.TfidfModel.load('tfidf_for_1_nofeatureinvariant2.tfidf')
 	lsi = models.lsimodel.LsiModel.load('lsi_for_1_nofeatureinvariant2.lsi')
+	text = [word for word in sentence1.split()]
+	from collections import defaultdict
+	frequency = defaultdict(int)
+	for token in text:
+		frequency[token] += 1
+	corpus = dictionary.doc2bow(text) 
+	corpus_tfidf = tfidf[corpus]
+	corpus_lsi = lsi[corpus_tfidf]
+	lv = np.zeros(200)
+	for i in xrange(len(corpus_lsi)):
+		lv[corpus_lsi[i][0]] = corpus_lsi[i][1]
+	return lv
+
+
+def compute_compound_feature_(a_compound, dictionary, tfidf, lsi):
+	"""
+	Input:
+		a_compound: InChI of the compound (string format)
+		dictionary: pretrained dictionary for lsi
+		tfidf: pretrained tfidf for lsi
+		lsi: pretrained lsi
+	Output:
+		if the compound is valid, return its 200-dimension feautre;
+		else return string "error"
+	"""
+	m = Chem.MolFromInchi(a_compound)
+	try:
+		sentence1 = ''
+		flag1 = 0
+		for atom in xrange(m.GetNumAtoms()):
+			info = {}
+			fp = AllChem.GetMorganFingerprint(m, 2, useFeatures=False,fromAtoms=[atom],bitInfo=info)
+			bits = list(fp.GetNonzeroElements())	
+			for i in bits:
+				position = info[i]
+				if position[0][1] == 1:
+					if flag1 == 0:
+						flag1 = 1
+						sentence1 += str(i)
+					else:
+						sentence1 += ' '
+						sentence1 += str(i)
+	except:
+		return 'error'
+	#dictionary = corpora.Dictionary.load('dict_for_1_nofeatureinvariant2.dict')
+	#tfidf = models.tfidfmodel.TfidfModel.load('tfidf_for_1_nofeatureinvariant2.tfidf')
+	#lsi = models.lsimodel.LsiModel.load('lsi_for_1_nofeatureinvariant2.lsi')
 	text = [word for word in sentence1.split()]
 	from collections import defaultdict
 	frequency = defaultdict(int)
@@ -124,28 +171,171 @@ def compute_protein_feature(a_protein):
 	return features
 
 
+def compute_protein_feature_(a_protein, model):
+	"""
+	Input:
+		a_protein: a protein sequence (string format)
+		model: pretrained word2vec model
+	Output:
+		return its 100-dimension feautre
+	"""
+	#model = Word2Vec.load('new_word2vec_model')
+	value = a_protein.lower()
+	
+	count1 = 0		
+	features = np.zeros(100)
+
+	begin = 0
+	step = 3
+	while True:
+		if begin+step > len(value):
+			break
+		else:
+			try:
+				features += model[value[begin:begin+step]]
+				begin += step
+				count1 += 1
+			except:
+				begin += step
+				continue
+
+	begin = 1
+	step = 3
+	while True:
+		if begin+step > len(value):
+			break
+		else:
+			try:
+				features += model[value[begin:begin+step]]
+				begin += step
+				count1 += 1
+			except:
+				begin += step
+				continue
+
+	begin = 2
+	step = 3
+	while True:
+		if begin+step > len(value):
+			break
+		else:
+			try:
+				features += model[value[begin:begin+step]]
+				begin += step
+				count1 += 1
+			except:
+				begin += step
+				continue
+
+	features = features/float(count1)
+	return features
+
+
+def load_data_with_label(filename):
+	"""
+	Input:
+		tsv file with three columns (compound_inchi protein_sequence label)
+	Output:
+		return a list: [[InChI0,protein_sequence0,label0],[InChI1,protein_sequence1,label1],...]
+	"""
+	l = []
+	f = open(filename)
+	lines = f.readlines()
+	f.close()
+	for i in lines:
+		parsed = i.strip('\n').strip('\r').split('\t')
+		inchi = parsed[0]
+		seq = parsed[1]
+		label = parsed[2]
+		l.append([inchi, seq, label])
+	return l 
+
+
+
+def load_data_without_label(filename):
+	"""
+	Input:
+		tsv file with two columns (compound_inchi protein_sequence)
+	Output:
+		return a list: [[InChI0,protein_sequence0],[InChI1,protein_sequence1],...]
+	"""
+	l = []
+	f = open(filename)
+	lines = f.readlines()
+	f.close()
+	for i in lines:
+		parsed = i.strip('\n').strip('\r').split('\t')
+		inchi = parsed[0]
+		seq = parsed[1]
+		l.append([inchi, seq])
+	return l 
+
 def compute_feature_for_dataset(Data):
 	"""
 	Input:
 		Data: [[InChI0,protein_sequence0,label0],[InChI1,protein_sequence1,label1],...]
 	Output:
-		return feature matrix X (N x 300), and label list y;
-		note that since compounds can be invalid, the returned (X,y) may be less than input Data
+		return feature matrix X (N x 300), label list y, and a list l representing valid index of the Data;
+		note that since compounds can be invalid, the returned (X,y) may be less than input Data;
+		a txt file indicates failed data will be saved 
 	"""
+	dictionary = corpora.Dictionary.load('dict_for_1_nofeatureinvariant2.dict')
+	tfidf = models.tfidfmodel.TfidfModel.load('tfidf_for_1_nofeatureinvariant2.tfidf')
+	lsi = models.lsimodel.LsiModel.load('lsi_for_1_nofeatureinvariant2.lsi')
+	model = Word2Vec.load('new_word2vec_model')
+
 	X = []
 	y = []
+	l = []
+	counter = 0
+	f = open('failed_data.txt','wb')
 	for i in Data:
 		tmp = np.zeros(300)
-		c = compute_compound_feature(i[0])
+		c = compute_compound_feature_(i[0], dictionary, tfidf, lsi)
 		if c == 'error':
+			f.writelines('line:'+str(counter+1)+'failed compound:'+str(Data[counter][0])+'\n')
 			continue
-		p = compute_protein_feature(i[1])
+		l.append(counter)
+		p = compute_protein_feature_(i[1], model)
 		tmp[:200] = c
 		tmp[200:] = p
 		X.append(tmp)
 		y.append(i[2])
-	return X,y
+		counter += 1
+	return X,y,l
 
+def compute_feature_for_dataset_without_label(Data):
+	"""
+	Input:
+		Data: [[InChI0,protein_sequence0],[InChI1,protein_sequence1],...]
+	Output:
+		return feature matrix X (N x 300) and a list representing valid index of the Data;
+		note that since compounds can be invalid, the returned X may be less than input Data;
+		a txt file indicates failed data will be saved
+	"""
+	dictionary = corpora.Dictionary.load('dict_for_1_nofeatureinvariant2.dict')
+	tfidf = models.tfidfmodel.TfidfModel.load('tfidf_for_1_nofeatureinvariant2.tfidf')
+	lsi = models.lsimodel.LsiModel.load('lsi_for_1_nofeatureinvariant2.lsi')
+	model = Word2Vec.load('new_word2vec_model')
+
+	X = []
+	l = []
+	counter = 0
+	f = open('failed_data.txt','wb')
+	for i in Data:
+		print counter
+		tmp = np.zeros(300)
+		c = compute_compound_feature_(i[0], dictionary, tfidf, lsi)
+		if c == 'error':
+			f.writelines('line:'+str(counter+1)+'failed compound:'+str(Data[counter][0])+'\n')
+			continue
+		l.append(counter)
+		p = compute_protein_feature_(i[1], model)
+		tmp[:200] = c
+		tmp[200:] = p
+		X.append(tmp)
+		counter += 1
+	return X, l
 
 
 def DeepCPI_train_and_predict(X_train, y_train, X_test):
@@ -287,4 +477,23 @@ def example_code_of_read_dict(filename):
 	for key,value in tmp.iteritems():
 		print key,value
 
+if __name__ == "__main__":
+	example_data = './example_data.tsv'
 
+	#load data
+	Data = load_data_without_label(example_data)
+	print ('data loaded')
+
+	#compute features
+	X, l = compute_feature_for_dataset_without_label(Data)
+	print ('feature generated')
+
+	#make predictions using pretrained model
+	Y_pred = finetunemodel_predict(X)
+	print ('prediction finished')
+
+	#write predictions to file
+	f = open('Prediction_results.tsv', 'wb')
+	for i in range(len(l)):
+		f.writelines(Data[l[i]][0]+'\t'+Data[l[i]][1]+'\t'+str(Y_pred[i][0])+'\n')
+	f.close()
