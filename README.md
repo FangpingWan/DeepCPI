@@ -8,4 +8,4 @@
 Python2.7, Keras=1.2.2, Gensim=0.10.2, Tensorflow=1.2.0, RDKit
 
 # Recent Update 04/28/2020
-An IO bug was fixed.
+An I/O bug was fixed.
