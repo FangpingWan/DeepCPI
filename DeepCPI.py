@@ -479,6 +479,7 @@ def example_code_of_read_dict(filename):
 	for key,value in tmp.iteritems():
 		print key,value
 
+
 if __name__ == "__main__":
 	example_data = './example_data.tsv'
 
