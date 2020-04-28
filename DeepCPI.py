@@ -295,6 +295,7 @@ def compute_feature_for_dataset(Data):
 		c = compute_compound_feature_(i[0], dictionary, tfidf, lsi)
 		if c == 'error':
 			f.writelines('line:'+str(counter+1)+'failed compound:'+str(Data[counter][0])+'\n')
+			counter += 1
 			continue
 		l.append(counter)
 		p = compute_protein_feature_(i[1], model)
