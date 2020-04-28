@@ -265,6 +265,7 @@ def load_data_without_label(filename):
 	f.close()
 	for i in lines:
 		parsed = i.strip('\n').strip('\r').split('\t')
+		#print parsed
 		inchi = parsed[0]
 		seq = parsed[1]
 		l.append([inchi, seq])
@@ -323,11 +324,12 @@ def compute_feature_for_dataset_without_label(Data):
 	counter = 0
 	f = open('failed_data.txt','wb')
 	for i in Data:
-		print counter
+		#print counter
 		tmp = np.zeros(300)
 		c = compute_compound_feature_(i[0], dictionary, tfidf, lsi)
 		if c == 'error':
-			f.writelines('line:'+str(counter+1)+'failed compound:'+str(Data[counter][0])+'\n')
+			f.writelines('line:'+str(counter+1)+' failed compound:'+str(Data[counter][0])+'\n')
+			counter += 1
 			continue
 		l.append(counter)
 		p = compute_protein_feature_(i[1], model)
